@@ -19,10 +19,10 @@ class MorsePredictor:
         self.training_char = 'A'
 
         # Load the trained model
-        self.model = load_model('model_epoch_47_loss_0.01.keras')
+        self.model = load_model('model_epoch_86_loss_0.01.keras')
 
     # Function to decode Morse code sequences
-    def decode_morse_sequence(self, morse_sequence,sequence_length=462):
+    def decode_morse_sequence(self, morse_sequence,sequence_length=550):
         # Convert morse_sequence = "00010101" into numeric_sequence = [0, 0, 0, 1, 0, 1, 0, 1]
         morse_sequence = morse_sequence.strip('0') # remove all 0 from start and end of morse_sequence
         numeric_sequence = [int(char) for char in morse_sequence] 

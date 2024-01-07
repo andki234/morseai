@@ -21,10 +21,10 @@ class HistoryPlot():
         val_accuracy_values = history_dict['val_accuracy']
         epochs = range(1, len(loss_values) + 1)
 
-        # Plotting training and validation loss
-        plt.figure(figsize=(12, 6))
+        plt.figure(figsize=(18, 6))  # Adjust the figure size as needed
 
-        plt.subplot(1, 2, 1)
+        # Plotting training and validation loss
+        plt.subplot(1, 3, 1)  # Changed to 1 row, 3 columns, position 1
         plt.plot(epochs, loss_values, 'g', label='Training loss')
         plt.plot(epochs, val_loss_values, 'b', label='Validation loss')
         plt.title('Training and Validation Loss')
@@ -33,7 +33,7 @@ class HistoryPlot():
         plt.legend()
 
         # Plotting training and validation accuracy
-        plt.subplot(1, 2, 2)
+        plt.subplot(1, 3, 2)  # Changed to 1 row, 3 columns, position 2
         plt.plot(epochs, accuracy_values, 'g', label='Training accuracy')
         plt.plot(epochs, val_accuracy_values, 'r', label='Validation accuracy')
         plt.title('Training and Validation Accuracy')
@@ -41,17 +41,18 @@ class HistoryPlot():
         plt.ylabel('Accuracy')
         plt.legend()
 
-        # Check if 'lr' is in history_dict
+        # Plotting learning rate
         if 'lr' in history_dict:
             learning_rate = history_dict['lr']
-            plt.figure(figsize=(8, 4))
+            plt.subplot(1, 3, 3)  # Added as the third subplot
             plt.plot(epochs, learning_rate, 'b-')
             plt.title('Learning Rate over Epochs')
             plt.xlabel('Epochs')
             plt.ylabel('Learning Rate')
 
-        plt.tight_layout()
+        plt.tight_layout()  # Adjust layout to fit the new subplot
         plt.show()
+      
 
 if __name__ == '__main__':
     plotter = HistoryPlot()

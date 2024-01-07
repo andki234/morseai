@@ -1,13 +1,25 @@
 import tensorflow as tf
 from tensorflow.keras.models import Sequential, save_model
 from tensorflow.keras.layers import LSTM, Dense, Dropout, BatchNormalization, Conv1D
-from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.callbacks import EarlyStopping, LearningRateScheduler, ReduceLROnPlateau, ModelCheckpoint
+from tensorflow.keras.callbacks import EarlyStopping, LearningRateScheduler, Callback, ModelCheckpoint
 import numpy as np
 import random
 import pickle
 import math
+import json
+
+# Save History callback
+class SaveHistoryCallback(Callback):
+    def __init__(self, filepath):
+        super(SaveHistoryCallback, self).__init__()
+        self.filepath = filepath
+
+    def on_epoch_end(self, epoch, logs=None):
+        # Modify the filename to include the epoch number
+        epoch_filename = self.filepath.format(epoch=epoch)
+        with open(epoch_filename, 'w') as f:
+            json.dump({epoch: logs}, f)
 
 class S7TClass():
     def __init__(self):
@@ -44,8 +56,8 @@ class S7TClass():
 
     def step_decay(self, epoch):
         initial_lr = self.initial_learning_rate # Initial learning rate
-        drop = 0.75  # Factor by which the learning rate will be reduced
-        epochs_drop = 20.0  # Every 'epochs_drop' epochs, the learning rate is reduced
+        drop = 0.50  # Factor by which the learning rate will be reduced
+        epochs_drop = 50.0  # Every 'epochs_drop' epochs, the learning rate is reduced
         lr = initial_lr * math.pow(drop, math.floor((1+epoch)/epochs_drop))
         return lr
 
@@ -72,9 +84,17 @@ class S7TClass():
 
         return model
     
-    def train_model(self, model, X, y, epochs=20, batch_size=64):
+    def train_model(self, model, X_train, y_train, X_test, y_test, epochs=20, batch_size=64):
+
+        #Split the data into training and temporary sets (50% each)
+        #X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5)
+        print("Shape of y_train_temp: ", np.array(y_train).shape)
+        print("Shape of X_train_temp: ", np.array(X_train).reshape(len(X_train), -1, 1).shape)
+        print("Shape of y_test: ", np.array(y_test).shape)
+        print("Shape of X_test: ", np.array(X_test).reshape(len(X_test), -1, 1).shape)
+
         # Early stopping callback
-        early_stopping = EarlyStopping(monitor='val_loss', patience=20, verbose=1)
+        early_stopping = EarlyStopping(monitor='val_loss', patience=200, verbose=1)
         lr_scheduler = LearningRateScheduler(self.step_decay)
 
         model_checkpoint_callback = ModelCheckpoint(
@@ -84,13 +104,18 @@ class S7TClass():
                     mode='auto',                                                     # Automatically select the mode: min or max
                     verbose=1,                                                       # Print the model checkpointing progress
                 )
+        
+        history_filepath = 'struggle8_history_for_epoch{epoch}.json'  # Path with placeholder for epoch
 
         # Train the model
-        history = model.fit(np.array(X).reshape(len(X), -1, 1), 
-                            np.array(y), validation_split=0.2, 
+        history = model.fit(np.array(X_train).reshape(len(X_train), -1, 1), 
+                            np.array(y_train), 
+                            validation_data=(np.array(X_test).reshape(len(X_test), -1, 1), 
+                                            np.array(y_test)), 
+                            #validation_split=0.5, 
                             epochs=epochs, 
                             batch_size=batch_size,
-                            callbacks=[model_checkpoint_callback, early_stopping, lr_scheduler],)
+                            callbacks=[model_checkpoint_callback, early_stopping, lr_scheduler,SaveHistoryCallback(history_filepath)])
 
         # Save history with pickle (only the history attribute)
         with open('struggle7_model_history.pkl', 'wb') as f:  # Use .pkl as the file extension for clarity
@@ -102,14 +127,15 @@ class S7TClass():
         
 if __name__ == '__main__':
     s7tc = S7TClass()
-    model = s7tc.create_model(lstm_units=196, lstm_final_units = 64, nof_lstm_layers = 2, dropout_rate = 0.2, learning_rate=0.0005)
-    # Load the model with pickle
+    model = s7tc.create_model(lstm_units=256, lstm_final_units = 64, nof_lstm_layers = 5, dropout_rate = 0.2, learning_rate=0.001)
+    # Load the training data
     with open('struggle8_training_data.pkl', 'rb') as f:  # Use .pkl as the file extension for clarity
-        X, y = pickle.load(f)
+        X_train, y_train = pickle.load(f)
+    # Load the test data
+    with open('struggle8_test_data.pkl', 'rb') as f:  # Use .pkl as the file extension for clarity
+        X_test, y_test = pickle.load(f) 
    
-    print("Shape of y: ", np.array(y).shape)
-    print("Shape of X: ", np.array(X).reshape(len(X), -1, 1).shape)
-    s7tc.train_model(model, X, y, epochs=50, batch_size=64)
+    s7tc.train_model(model, X_train, y_train, X_test, y_test, epochs=100, batch_size=64)
 
     print("Done!")
 

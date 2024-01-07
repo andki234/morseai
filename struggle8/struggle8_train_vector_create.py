@@ -133,54 +133,117 @@ class MorseCodeTrainingDataGeneratorClass:
             'dash': samples_per_dash,
             'intra_char_space': samples_per_space_between_elements,
             'inter_char_space': samples_per_space_between_characters,
-            'inter_word_space': samples_per_space_between_words
+            'inter_word_space': samples_per_space_between_words,
+            'sapmle_rate': self.sample_rate
         }
 
-    def morse_to_timestep_numeric(self, morse_code, timing):
+    def morse_to_timestep_numeric(self, morse_code = "", human_dist = False, human_dist_value_dot = 1.0, human_dist_value_dash = 1.0, human_dist_value_element_space = 1.0, timing = None):
         numeric_sequence = []
         for char in morse_code:
             if char == '.':
                 # Dot vector
-                vect = [1] * timing['dot'] + [0] * timing['intra_char_space']
+                if human_dist:
+                    dotduration = timing['dotduration'] * human_dist_value_dot * random.uniform(0.9, 1.1)
+                    spaceduration = timing['space_between_elements_duration'] * human_dist_value_element_space * random.uniform(0.9, 1.1)
+                    vect = [1] * max(1, int(round(dotduration * self.sample_rate)))
+                    vect += [0] * max(1,int(round(spaceduration * self.sample_rate)))
+                    if len(vect) <= 6:
+                        print(f"dotduration: {int(dotduration * self.sample_rate), dotduration * self.sample_rate, round(dotduration * self.sample_rate)} : {vect}")
+                else:
+                    vect = [1] * timing['dot'] + [0] * timing['intra_char_space']
                 numeric_sequence.extend(vect)
             elif char == '-':
                 # Dash vector
-                vect = [1] * timing['dash'] + [0] * timing['intra_char_space']
+                if human_dist:
+                    dashduration = timing['dashduration'] * human_dist_value_dash * random.uniform(0.9, 1.1)
+                    spaceduration = timing['space_between_elements_duration'] * human_dist_value_element_space * random.uniform(0.9, 1.1)
+                    vect = [1] * max(3,int(round(dashduration * self.sample_rate)))
+                    vect += [0] * max(3,int(round(spaceduration * self.sample_rate)))
+                    if len(vect) <= 12:
+                        print(f"dashduration: {int(dashduration * self.sample_rate), dashduration * self.sample_rate, round(dashduration * self.sample_rate)} : {vect}")
+                else:
+                    vect = [1] * timing['dash'] + [0] * timing['intra_char_space']
                 numeric_sequence.extend(vect)
             elif char == '§':  # Space between characters
                 # Space between characters vector
-                vect = [0] * (timing['inter_char_space'] - timing['intra_char_space'])
+                if human_dist:
+                    charspaceduration = (timing['space_between_characters_duration'] - timing['space_between_elements_duration']) * human_dist_value_dot * random.uniform(0.9, 1.1)
+                    vect = [0] * max(15, int(round(charspaceduration * self.sample_rate)))
+                    if len(vect) <= 12:
+                        print(f"dashduration: {int(charspaceduration * self.sample_rate), charspaceduration * self.sample_rate, round(charspaceduration * self.sample_rate)} : {vect}")
+                else:
+                    vect = [0] * (timing['inter_char_space'] - timing['intra_char_space'])
                 numeric_sequence.extend(vect)
          
 
         return numeric_sequence
 
-    def create_training_dataset(self):
-        
-        # Generate timing
-        timing_fast = self.generate_timing(swe_takt=60)        
-        timing = self.generate_timing(swe_takt=50)
-        timing_slow = self.generate_timing(swe_takt=40)
-        
+    def create_training_dataset(self, filename='struggle8_training_data.pkl'):
         # Prepare dataset with multiple characters
         X = []
         y = []
 
-        for takt in range(30, 170, 5):
+        for takt in range(30, 151, 5):
             for letter, code in self.morse_code_dict.items():
-                for _ in range(20):  # Repeat each letter
-                    X.append(self.morse_to_timestep_numeric(code + '§', timing=self.generate_timing(swe_takt=takt)))
+                for _ in range(5):  # Repeat each letter with perfect timing 10 times
+                    X.append(self.morse_to_timestep_numeric(code + '§', human_dist=False, timing=self.generate_timing(swe_takt=takt)))
                     y.append(self.unique_identifiers[letter])
+                    # Add with some human distortion
+                for _ in range(10):  # Make sure to have some human distortion in the dataset. Repeat each letter 5 times with human distortions +- 20%
+                    human_dist_value_dot = random.uniform(1.0, 1.0)
+                    human_dist_value_dash = random.uniform(1.0, 1.0)
+                    human_dist_value_element_space = random.uniform(0.7, 1.3)
+                    for _ in range(3):  # Repeat each letter 10 times with human distortions +- 20%
+                        X.append(self.morse_to_timestep_numeric(code + '§', 
+                                                                human_dist=True, 
+                                                                human_dist_value_dot=human_dist_value_dot, 
+                                                                human_dist_value_dash=human_dist_value_dash, 
+                                                                human_dist_value_element_space=human_dist_value_element_space,
+                                                                timing=self.generate_timing(swe_takt=takt)))
+                        y.append(self.unique_identifiers[letter])
 
-        """
-        for takt in range(40, 101, 5):
-            # Additional data for sequences of 2 characters
-            for letter1, code1 in self.morse_code_dict.items():
-                for letter2, code2 in self.morse_code_dict.items():
-                    combined_code = code1 + '§' + code2
-                    X.append(self.morse_to_timestep_numeric(combined_code, timing=self.generate_timing(swe_takt=takt)))
-                    y.append(self.unique_identifiers[letter1])
-        """
+                for _ in range(10):  # Make sure to have some human distortion in the dataset. Repeat each letter 5 times with human distortions +- 20%
+                    human_dist_value_dot = random.uniform(1.0, 1.0)
+                    human_dist_value_dash = random.uniform(0.7, 1.3)
+                    human_dist_value_element_space = random.uniform(1.0, 1.0)
+                    for _ in range(3):  # Repeat each letter 10 times with human distortions +- 20%
+                        X.append(self.morse_to_timestep_numeric(code + '§', 
+                                                                human_dist=True, 
+                                                                human_dist_value_dot=human_dist_value_dot, 
+                                                                human_dist_value_dash=human_dist_value_dash, 
+                                                                human_dist_value_element_space=human_dist_value_element_space,
+                                                                timing=self.generate_timing(swe_takt=takt)))
+                        y.append(self.unique_identifiers[letter])
+
+                for _ in range(10):  # Make sure to have some human distortion in the dataset. Repeat each letter 5 times with human distortions +- 20%
+                    human_dist_value_dot = random.uniform(1.0, 1.0)
+                    human_dist_value_dash = random.uniform(1.0, 1.0)
+                    human_dist_value_element_space = random.uniform(0.7, 1.3)
+                    for _ in range(3):  # Repeat each letter 10 times with human distortions +- 20%
+                        X.append(self.morse_to_timestep_numeric(code + '§', 
+                                                                human_dist=True, 
+                                                                human_dist_value_dot=human_dist_value_dot, 
+                                                                human_dist_value_dash=human_dist_value_dash, 
+                                                                human_dist_value_element_space=human_dist_value_element_space,
+                                                                timing=self.generate_timing(swe_takt=takt)))
+                        y.append(self.unique_identifiers[letter])
+
+
+                for _ in range(10):  # Make sure to have some human distortion in the dataset. Repeat each letter 5 times with human distortions +- 20%
+                    human_dist_value_dot = random.uniform(0.7, 1.3)
+                    human_dist_value_dash = random.uniform(0.7, 1.3)
+                    human_dist_value_element_space = random.uniform(0.7, 1.3)
+                    for _ in range(3):  # Repeat each letter 10 times with human distortions +- 20%
+                        X.append(self.morse_to_timestep_numeric(code + '§', 
+                                                                human_dist=True, 
+                                                                human_dist_value_dot=human_dist_value_dot, 
+                                                                human_dist_value_dash=human_dist_value_dash, 
+                                                                human_dist_value_element_space=human_dist_value_element_space,
+                                                                timing=self.generate_timing(swe_takt=takt)))
+                        y.append(self.unique_identifiers[letter])
+
+
+
 
         # Print longest sequence of X
         x = max(X, key=len)
@@ -188,9 +251,7 @@ class MorseCodeTrainingDataGeneratorClass:
 
         print(f"Longest sequence of X[{xi}]: {len(x)}")
         print(f"X[{xi}]: {x}")
-        print(f"y[{xi}]: {y[xi]}")
-
-        
+        print(f"y[{xi}]: {y[xi]}")        
 
         # Shuffle the dataset
         combined = list(zip(X, y))
@@ -198,21 +259,26 @@ class MorseCodeTrainingDataGeneratorClass:
         X[:], y[:] = zip(*combined)
 
         # Pad sequences for consistent input size
-        X = tf.keras.preprocessing.sequence.pad_sequences(X, padding='post')
+        X = tf.keras.preprocessing.sequence.pad_sequences(X, padding='post', maxlen = 670, dtype='int8',)
 
         # Convert output to categorical
-        y = to_categorical(y, num_classes=self.num_categories)  # Ensure correct number of categories
+        y_cat = to_categorical(y, num_classes=self.num_categories)  # Ensure correct number of categories
 
-        # Save history with pickle (only the history attribute)
-        with open('struggle8_training_data.pkl', 'wb') as f:  # Use .pkl as the file extension for clarity
-            pickle.dump([X, y], f)
+        # Save history with pickle (only the history attribute) for y_cat
+        with open(filename, 'wb') as f:  # Use .pkl as the file extension for clarity
+            pickle.dump([X, y_cat], f)
 
-        return X, y
+        # Save history with pickle (only the history attribute) for y
+        with open('raw_y_' + filename, 'wb') as f:  # Use .pkl as the file extension for clarity
+            pickle.dump(y, f)
+
+        print(f"X.shape: {X.shape}")
+        print(f"y.shape: {y_cat.shape}")
 
 # Main code optimized
 if __name__ == '__main__': 
     ctraindata = MorseCodeTrainingDataGeneratorClass(sample_rate=40) # Sample rate
-    X, y = ctraindata.create_training_dataset()
-   
-    
+    ctraindata.create_training_dataset("struggle8_training_data.pkl")
+    ctraindata.create_training_dataset("struggle8_test_data.pkl")
+
     print("Done!")
