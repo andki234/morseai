@@ -10,7 +10,7 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.utils import to_categorical
 
 class MorsePredictor:
-    def __init__(self):
+    def __init__(self, filename):
         # define vecor for new training data
         self.training_vectors_data = []
         self.training_vectors_char = []
@@ -19,7 +19,7 @@ class MorsePredictor:
         self.training_char = 'A'
 
         # Load the trained model
-        self.model = load_model('model_epoch_86_loss_0.01.keras')
+        self.model = load_model(filename)
 
     # Function to decode Morse code sequences
     def decode_morse_sequence(self, morse_sequence,sequence_length=550):
@@ -132,7 +132,7 @@ class MorsePredictor:
                 print("Invalid choice. Try again.")
 
 def main():
-    mdecoder = MorsePredictor()
+    mdecoder = MorsePredictor("model_epoch_12_loss_0.38.keras")
     #mdecoder.decode_morse_sequence("00000000001111110000001111111111111111110000000000")
     mdecoder.training_menu()
     

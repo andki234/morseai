@@ -72,63 +72,20 @@ class MorseCodeTrainingDataGeneratorClass:
 
         return total_units
   
-    def generate_timing(self, swe_takt=48):
-        # Optimized generate_timing method
-        # Calculate no of units in PARIS from dictionary when dot is 1, dash is 3, space between elements is 1, space between letters is 3 and space between words is 7
-        # P = .--. 11
-        # PAUS 3
-        # A = .- 5
-        # PAUS 3
-        # R = .-. 7
-        # PAUS 3
-        # I = .. 3
-        # PAUS 3
-        # S = ... 5
-        # PAUS 7
-        # Total 11 + 3 + 5 + 3 + 7 + 3 + 3 + 3 + 5 + 7 = 50
-
-        # Calculate no of units in PARIS from dictionary when dot is 1, dash is 3, space between elements is 1, space between letters is 3 and space between words is 7
-        no_units_in_paris_inc_space_between_words = self.count_morse_units_in_string('PARIS ')
-
-        # Ten PARIS is 500 units and must be sent in 60 seconds to get 10 WPM
-        ten_units_in_paris_inc_space_between_words = no_units_in_paris_inc_space_between_words * 10
-
-        # Calculate baud from ten PARIS (500 / 60 = 8.333) and modify for given swe_takt
-        bd = (ten_units_in_paris_inc_space_between_words / 60.0) * (1 / 50 * swe_takt)
-
-        # Calculate dot duration in seconds from bd (8.333) (1 / 8.333 = 0.12)
-        dot_duration_in_seconds = 1.0 / bd
-
-        # Calculate dash duration in seconds from bd (8.333) (3 / 8.333 = 0.36)
-        dash_duration_in_seconds = 3.0 / bd
-
-        # Calculate space between elements in seconds from bd (8.333) (1 / 8.333 = 0.12)
-        space_between_elements_in_seconds = 1.0 / bd
-
-        # Calculate space between characters in seconds from bd (8.333) (3 / 8.333 = 0.36)
-        space_between_characters_in_seconds = 3.0 / bd
-
-        # Calculate space between words in seconds from bd (8.333) (7 / 8.333 = 0.84)
-        space_between_words_in_seconds = 7.0 / bd
-
+    def generate_timing(self, nof_dot_samples):
         # Calculate samples per dot
-        samples_per_dot = int(dot_duration_in_seconds * self.sample_rate)
+        samples_per_dot = int(nof_dot_samples)
         # Calculate samples per dash
-        samples_per_dash = int(dash_duration_in_seconds * self.sample_rate)
+        samples_per_dash = int(nof_dot_samples * 3)
         # Calculate samples per space between elements
-        samples_per_space_between_elements = int(space_between_elements_in_seconds * self.sample_rate)
+        samples_per_space_between_elements = int(nof_dot_samples)
         # Calculate samples per space between characters
-        samples_per_space_between_characters = int(space_between_characters_in_seconds * self.sample_rate)
+        samples_per_space_between_characters = int(nof_dot_samples * 3)
         # Calculate samples per space between words
-        samples_per_space_between_words = int(space_between_words_in_seconds * self.sample_rate)
+        samples_per_space_between_words = int(nof_dot_samples * 7)
 
         # Return dictionary with timing
         return {
-            'dotduration': dot_duration_in_seconds,
-            'dashduration': dash_duration_in_seconds,
-            'space_between_elements_duration': space_between_elements_in_seconds,
-            'space_between_characters_duration': space_between_characters_in_seconds,
-            'space_between_words_duration': space_between_words_in_seconds,
             'dot': samples_per_dot,
             'dash': samples_per_dash,
             'intra_char_space': samples_per_space_between_elements,
@@ -143,34 +100,28 @@ class MorseCodeTrainingDataGeneratorClass:
             if char == '.':
                 # Dot vector
                 if human_dist:
-                    dotduration = timing['dotduration'] * human_dist_value_dot * random.uniform(0.9, 1.1)
-                    spaceduration = timing['space_between_elements_duration'] * human_dist_value_element_space * random.uniform(0.9, 1.1)
-                    vect = [1] * max(1, int(round(dotduration * self.sample_rate)))
-                    vect += [0] * max(1,int(round(spaceduration * self.sample_rate)))
-                    if len(vect) <= 6:
-                        print(f"dotduration: {int(dotduration * self.sample_rate), dotduration * self.sample_rate, round(dotduration * self.sample_rate)} : {vect}")
+                    dotduration = timing['dot'] * round(human_dist_value_dot * random.uniform(0.9, 1.1))
+                    spaceduration = timing['intra_char_space'] * round(human_dist_value_element_space * random.uniform(0.9, 1.1))
+                    vect = [1] * max(1, dotduration)
+                    vect += [0] * max(1,spaceduration)
                 else:
                     vect = [1] * timing['dot'] + [0] * timing['intra_char_space']
                 numeric_sequence.extend(vect)
             elif char == '-':
                 # Dash vector
                 if human_dist:
-                    dashduration = timing['dashduration'] * human_dist_value_dash * random.uniform(0.9, 1.1)
-                    spaceduration = timing['space_between_elements_duration'] * human_dist_value_element_space * random.uniform(0.9, 1.1)
-                    vect = [1] * max(3,int(round(dashduration * self.sample_rate)))
-                    vect += [0] * max(3,int(round(spaceduration * self.sample_rate)))
-                    if len(vect) <= 12:
-                        print(f"dashduration: {int(dashduration * self.sample_rate), dashduration * self.sample_rate, round(dashduration * self.sample_rate)} : {vect}")
+                    dashduration = timing['dot'] * round(human_dist_value_dot * random.uniform(0.9, 1.1))
+                    spaceduration = timing['intra_char_space'] * round(human_dist_value_element_space * random.uniform(0.9, 1.1))
+                    vect = [1] * max(1, dashduration)
+                    vect += [0] * max(1,spaceduration)
                 else:
                     vect = [1] * timing['dash'] + [0] * timing['intra_char_space']
                 numeric_sequence.extend(vect)
             elif char == '§':  # Space between characters
                 # Space between characters vector
                 if human_dist:
-                    charspaceduration = (timing['space_between_characters_duration'] - timing['space_between_elements_duration']) * human_dist_value_dot * random.uniform(0.9, 1.1)
-                    vect = [0] * max(15, int(round(charspaceduration * self.sample_rate)))
-                    if len(vect) <= 12:
-                        print(f"dashduration: {int(charspaceduration * self.sample_rate), charspaceduration * self.sample_rate, round(charspaceduration * self.sample_rate)} : {vect}")
+                    charspaceduration = (timing['inter_char_space'] - timing['intra_char_space']) * round(human_dist_value_dot * random.uniform(0.9, 1.1))
+                    vect = [0] * max(7, charspaceduration)
                 else:
                     vect = [0] * (timing['inter_char_space'] - timing['intra_char_space'])
                 numeric_sequence.extend(vect)
@@ -183,28 +134,31 @@ class MorseCodeTrainingDataGeneratorClass:
         X = []
         y = []
 
-        for takt in range(30, 151, 5):
+        for nof_dot_samples in range(3, 3*10, 3):
+            tim = self.generate_timing(nof_dot_samples=nof_dot_samples)
+            print(f"takt: {nof_dot_samples}")
+            print(f"tim: {tim}")
             for letter, code in self.morse_code_dict.items():
                 for _ in range(5):  # Repeat each letter with perfect timing 10 times
-                    X.append(self.morse_to_timestep_numeric(code + '§', human_dist=False, timing=self.generate_timing(swe_takt=takt)))
+                    X.append(self.morse_to_timestep_numeric(code + '§', human_dist=False, timing=self.generate_timing(nof_dot_samples=nof_dot_samples)))
                     y.append(self.unique_identifiers[letter])
                     # Add with some human distortion
                 for _ in range(10):  # Make sure to have some human distortion in the dataset. Repeat each letter 5 times with human distortions +- 20%
                     human_dist_value_dot = random.uniform(1.0, 1.0)
                     human_dist_value_dash = random.uniform(1.0, 1.0)
-                    human_dist_value_element_space = random.uniform(0.7, 1.3)
+                    human_dist_value_element_space =  random.uniform(-(tim["intra_char_space"]/4), tim["intra_char_space"]/4)
                     for _ in range(3):  # Repeat each letter 10 times with human distortions +- 20%
                         X.append(self.morse_to_timestep_numeric(code + '§', 
                                                                 human_dist=True, 
                                                                 human_dist_value_dot=human_dist_value_dot, 
                                                                 human_dist_value_dash=human_dist_value_dash, 
                                                                 human_dist_value_element_space=human_dist_value_element_space,
-                                                                timing=self.generate_timing(swe_takt=takt)))
+                                                                timing=self.generate_timing(nof_dot_samples=nof_dot_samples)))
                         y.append(self.unique_identifiers[letter])
 
                 for _ in range(10):  # Make sure to have some human distortion in the dataset. Repeat each letter 5 times with human distortions +- 20%
                     human_dist_value_dot = random.uniform(1.0, 1.0)
-                    human_dist_value_dash = random.uniform(0.7, 1.3)
+                    human_dist_value_dash = random.uniform(-(tim["dash"]/4), tim["dash"]/4)
                     human_dist_value_element_space = random.uniform(1.0, 1.0)
                     for _ in range(3):  # Repeat each letter 10 times with human distortions +- 20%
                         X.append(self.morse_to_timestep_numeric(code + '§', 
@@ -212,34 +166,34 @@ class MorseCodeTrainingDataGeneratorClass:
                                                                 human_dist_value_dot=human_dist_value_dot, 
                                                                 human_dist_value_dash=human_dist_value_dash, 
                                                                 human_dist_value_element_space=human_dist_value_element_space,
-                                                                timing=self.generate_timing(swe_takt=takt)))
+                                                                timing=self.generate_timing(nof_dot_samples=nof_dot_samples)))
                         y.append(self.unique_identifiers[letter])
 
                 for _ in range(10):  # Make sure to have some human distortion in the dataset. Repeat each letter 5 times with human distortions +- 20%
-                    human_dist_value_dot = random.uniform(1.0, 1.0)
+                    human_dist_value_dot = random.uniform(-(tim["dot"]/4), tim["dot"]/4)
                     human_dist_value_dash = random.uniform(1.0, 1.0)
-                    human_dist_value_element_space = random.uniform(0.7, 1.3)
+                    human_dist_value_element_space = random.uniform(1.0, 1.0)
                     for _ in range(3):  # Repeat each letter 10 times with human distortions +- 20%
                         X.append(self.morse_to_timestep_numeric(code + '§', 
                                                                 human_dist=True, 
                                                                 human_dist_value_dot=human_dist_value_dot, 
                                                                 human_dist_value_dash=human_dist_value_dash, 
                                                                 human_dist_value_element_space=human_dist_value_element_space,
-                                                                timing=self.generate_timing(swe_takt=takt)))
+                                                                timing=self.generate_timing(nof_dot_samples=nof_dot_samples)))
                         y.append(self.unique_identifiers[letter])
 
 
                 for _ in range(10):  # Make sure to have some human distortion in the dataset. Repeat each letter 5 times with human distortions +- 20%
-                    human_dist_value_dot = random.uniform(0.7, 1.3)
-                    human_dist_value_dash = random.uniform(0.7, 1.3)
-                    human_dist_value_element_space = random.uniform(0.7, 1.3)
+                    human_dist_value_dot = random.uniform(-1, 1)
+                    human_dist_value_dash = random.uniform(-1, 1)
+                    human_dist_value_element_space = random.uniform(-1, 1)
                     for _ in range(3):  # Repeat each letter 10 times with human distortions +- 20%
                         X.append(self.morse_to_timestep_numeric(code + '§', 
                                                                 human_dist=True, 
                                                                 human_dist_value_dot=human_dist_value_dot, 
                                                                 human_dist_value_dash=human_dist_value_dash, 
                                                                 human_dist_value_element_space=human_dist_value_element_space,
-                                                                timing=self.generate_timing(swe_takt=takt)))
+                                                                timing=self.generate_timing(nof_dot_samples=nof_dot_samples)))
                         y.append(self.unique_identifiers[letter])
 
 
@@ -254,12 +208,12 @@ class MorseCodeTrainingDataGeneratorClass:
         print(f"y[{xi}]: {y[xi]}")        
 
         # Shuffle the dataset
-        combined = list(zip(X, y))
-        random.shuffle(combined)
-        X[:], y[:] = zip(*combined)
+        #combined = list(zip(X, y))
+        #random.shuffle(combined)
+        #X[:], y[:] = zip(*combined)
 
         # Pad sequences for consistent input size
-        X = tf.keras.preprocessing.sequence.pad_sequences(X, padding='post', maxlen = 670, dtype='int8',)
+        X = tf.keras.preprocessing.sequence.pad_sequences(X, padding='post', maxlen = 2000, dtype='int8',)
 
         # Convert output to categorical
         y_cat = to_categorical(y, num_classes=self.num_categories)  # Ensure correct number of categories
@@ -277,7 +231,7 @@ class MorseCodeTrainingDataGeneratorClass:
 
 # Main code optimized
 if __name__ == '__main__': 
-    ctraindata = MorseCodeTrainingDataGeneratorClass(sample_rate=40) # Sample rate
+    ctraindata = MorseCodeTrainingDataGeneratorClass(sample_rate=48) # Sample rate
     ctraindata.create_training_dataset("struggle8_training_data.pkl")
     ctraindata.create_training_dataset("struggle8_test_data.pkl")
 

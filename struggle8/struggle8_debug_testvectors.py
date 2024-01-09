@@ -5,6 +5,24 @@ import pickle
 import numpy as np
 import struggle8_base as s8b
 
+def find_key(value, dictionary):
+    return next((key for key, val in dictionary.items() if val == value), "Key not found")
+
+def vector_to_text_file(filename):
+    # Load the training data
+    X_train, y_train = load_test_vectors()
+
+    # Save all vectors to file like "Y_train:X_train"
+    with open(filename, 'w') as f:
+        for i in range(len(X_train)):
+            # Create string vector from the binary vector
+            vector = ''.join([str(int(bit)) for bit in X_train[i]])
+            # Remove trailing zeros
+            vector = vector.rstrip('0')
+            # Write the vector to a file
+            letter = find_key(y_train[i], s8b.unique_identifiers)
+            f.write(f"{letter}:{vector}\n")
+
 def show_test_vectors():
     X_train, y_train = load_test_vectors()
 
@@ -55,6 +73,9 @@ def load_test_vectors():
     with open('raw_y_struggle8_training_data.pkl', 'rb') as f:  # Use .pkl as the file extension for clarity
         y_train = pickle.load(f)
     return X_train, y_train
+
+# Save all 
+vector_to_text_file('struggle8_test_vectors.txt')
 
 # Set up the main window
 window = tk.Tk()

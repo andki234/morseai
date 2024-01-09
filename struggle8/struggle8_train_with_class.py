@@ -1,8 +1,9 @@
 import tensorflow as tf
 from tensorflow.keras.models import Sequential, save_model
-from tensorflow.keras.layers import LSTM, Dense, Dropout, BatchNormalization, Conv1D
+from tensorflow.keras.layers import LSTM, Dense, Dropout, BatchNormalization
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping, LearningRateScheduler, Callback, ModelCheckpoint
+from keras.regularizers import l1, l2, l1_l2
 import numpy as np
 import random
 import pickle
@@ -57,15 +58,37 @@ class S7TClass():
     def step_decay(self, epoch):
         initial_lr = self.initial_learning_rate # Initial learning rate
         drop = 0.50  # Factor by which the learning rate will be reduced
-        epochs_drop = 50.0  # Every 'epochs_drop' epochs, the learning rate is reduced
+        epochs_drop = 10.0  # Every 'epochs_drop' epochs, the learning rate is reduced
         lr = initial_lr * math.pow(drop, math.floor((1+epoch)/epochs_drop))
         return lr
+
+    def create_model_old(self, lstm_units=64, lstm_final_units = 32, nof_lstm_layers = 1, dropout_rate = 0.33, learning_rate=0.001):
+        # Model parameters
+        self.initial_learning_rate=learning_rate
+
+        model = Sequential()
+        for i in range(nof_lstm_layers):
+            model.add(LSTM(lstm_units, input_shape=(None, 1), return_sequences=True, 
+                           kernel_regularizer=l2(1e-3), recurrent_regularizer=l1(1e-4)))
+            model.add(BatchNormalization())
+            model.add(Dropout(dropout_rate))
+        model.add(LSTM(lstm_final_units, kernel_regularizer=l2(1e-3), recurrent_regularizer=l1(1e-4)))
+        model.add(BatchNormalization())
+        model.add(Dropout(dropout_rate))
+        model.add(Dense(self.num_categories, activation='softmax', kernel_regularizer=l1_l2(l1=1e-4, l2=1e-3)))
+
+        # Compile the model
+        optimizer = Adam(learning_rate=self.initial_learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-07, clipnorm = 0.99)
+        model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
+        print(model.summary())
+
+        return model
+    
 
     def create_model(self, lstm_units=64, lstm_final_units = 32, nof_lstm_layers = 1, dropout_rate = 0.33, learning_rate=0.001):
         # Model parameters
         self.initial_learning_rate=learning_rate
 
-        # Create LSTM model with Dropout and BatchNormalization layers
         model = Sequential()
         for i in range(nof_lstm_layers):
             model.add(LSTM(lstm_units, input_shape=(None, 1), return_sequences=True))
@@ -77,9 +100,8 @@ class S7TClass():
         model.add(Dense(self.num_categories, activation='softmax'))
 
         # Compile the model
-        optimizer = Adam(learning_rate=self.initial_learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-07)
+        optimizer = Adam(learning_rate=self.initial_learning_rate)
         model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
-
         print(model.summary())
 
         return model
@@ -115,7 +137,7 @@ class S7TClass():
                             #validation_split=0.5, 
                             epochs=epochs, 
                             batch_size=batch_size,
-                            callbacks=[model_checkpoint_callback, early_stopping, lr_scheduler,SaveHistoryCallback(history_filepath)])
+                            callbacks=[model_checkpoint_callback, early_stopping, lr_scheduler])
 
         # Save history with pickle (only the history attribute)
         with open('struggle7_model_history.pkl', 'wb') as f:  # Use .pkl as the file extension for clarity
@@ -127,7 +149,7 @@ class S7TClass():
         
 if __name__ == '__main__':
     s7tc = S7TClass()
-    model = s7tc.create_model(lstm_units=256, lstm_final_units = 64, nof_lstm_layers = 5, dropout_rate = 0.2, learning_rate=0.001)
+    model = s7tc.create_model(lstm_units=256, lstm_final_units = 64, nof_lstm_layers =4, dropout_rate = 0.2, learning_rate=0.001)
     # Load the training data
     with open('struggle8_training_data.pkl', 'rb') as f:  # Use .pkl as the file extension for clarity
         X_train, y_train = pickle.load(f)
@@ -135,7 +157,10 @@ if __name__ == '__main__':
     with open('struggle8_test_data.pkl', 'rb') as f:  # Use .pkl as the file extension for clarity
         X_test, y_test = pickle.load(f) 
    
-    s7tc.train_model(model, X_train, y_train, X_test, y_test, epochs=100, batch_size=64)
+    s7tc.train_model(model, X_train, y_train, X_test, y_test, epochs=30, batch_size=64)
+    # Evaluate the model
+    score = model.evaluate(X_test, y_test, verbose=1)
+    print('Test loss:', score[0])
 
     print("Done!")
 
